@@ -5,7 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
@@ -21,18 +21,36 @@ import ScanModeScreen from './src/screens/ScanModeScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const TAB_BAR_STYLE = {
-  backgroundColor: colors.surface,
-  borderTopWidth: 1,
-  borderTopColor: colors.border,
-  height: Platform.OS === 'ios' ? 84 : 64,
-  paddingBottom: Platform.OS === 'ios' ? 24 : 8,
-  paddingTop: 8,
-  elevation: 8,
-};
+// Hook-based tab bar style to properly respect Android bottom inset
+function useTabBarStyle() {
+  const insets = useSafeAreaInsets();
+  if (Platform.OS === 'ios') {
+    return {
+      backgroundColor: colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      height: 84,
+      paddingBottom: 24,
+      paddingTop: 8,
+      elevation: 8,
+    };
+  }
+  // Android: add system bottom inset (navigation bar height) to avoid overlap
+  const bottomInset = insets.bottom ?? 0;
+  return {
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    height: 56 + bottomInset,
+    paddingBottom: bottomInset > 0 ? bottomInset : 8,
+    paddingTop: 8,
+    elevation: 8,
+  };
+}
 
 // Admin tabs: Accueil + Scanner
 function AdminTabNavigator() {
+  const tabBarStyle = useTabBarStyle();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -47,7 +65,7 @@ function AdminTabNavigator() {
         tabBarActiveTintColor: colors.blue,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        tabBarStyle: TAB_BAR_STYLE,
+        tabBarStyle: tabBarStyle,
         tabBarHideOnKeyboard: true,
       })}
       screenListeners={{ tabPress: () => Haptics.selectionAsync() }}
@@ -60,6 +78,7 @@ function AdminTabNavigator() {
 
 // Organizer tabs: Accueil + Scanner
 function OrganizerTabNavigator() {
+  const tabBarStyle = useTabBarStyle();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -74,7 +93,7 @@ function OrganizerTabNavigator() {
         tabBarActiveTintColor: colors.blue,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        tabBarStyle: TAB_BAR_STYLE,
+        tabBarStyle: tabBarStyle,
         tabBarHideOnKeyboard: true,
       })}
       screenListeners={{ tabPress: () => Haptics.selectionAsync() }}
