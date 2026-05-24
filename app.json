@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Tapakeel Ticket Scan",
+    "slug": "scanapp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/brand/home-logo.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/brand/home-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "L'application nécessite l'accès à la caméra pour scanner les billets."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/brand/home-logo.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/brand/home-logo.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Tapakeel to access your camera to scan tickets."
+        }
+      ]
+    ]
+  }
+}
