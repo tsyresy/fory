@@ -17,10 +17,10 @@ function StaffRow({ staff, onToggle }) {
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.staffName} numberOfLines={1}>
-          {staff.profiles?.full_name || staff.profiles?.email || 'Utilisateur'}
+          {staff.staff_name || staff.profiles?.full_name || staff.staff_email || staff.profiles?.email || 'Utilisateur'}
         </Text>
         <Text style={styles.staffDate}>
-          Rejoint le {new Date(staff.joined_at).toLocaleDateString('fr-FR')}
+          {staff.staff_email ? `${staff.staff_email} · ` : ''}Rejoint le {new Date(staff.joined_at).toLocaleDateString('fr-FR')}
         </Text>
       </View>
       <TouchableOpacity
@@ -68,13 +68,18 @@ export default function OrganizerStaffScreen({ user, refreshing, onRefreshComple
         orgEvents.map(async (evt) => {
           const { data: staffList } = await supabase
             .from('event_staff')
-            .select('id, user_id, status, joined_at, suspended_at')
+            .select('id, user_id, status, joined_at, suspended_at, staff_name, staff_email')
             .eq('event_id', evt.id)
             .order('joined_at', { ascending: false });
 
-          // Fetch profile info for each staff user separately (avoids RLS FK join issues)
+          // Try to enrich with profile data (may fail due to RLS, but staff_name/staff_email are fallbacks)
           const enrichedStaff = await Promise.all(
             (staffList || []).map(async (staff) => {
+              if (staff.staff_name) {
+                // Already have name stored — no need to query profiles
+                return { ...staff, profiles: { full_name: staff.staff_name, email: staff.staff_email } };
+              }
+              // Fallback: try to fetch from profiles
               const { data: profile } = await supabase
                 .from('profiles')
                 .select('full_name, email')

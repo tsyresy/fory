@@ -116,10 +116,20 @@ export default function LoginScreen() {
         return;
       }
 
-      // 4. Check if already in event_staff and status
+      // 4. Fetch user's profile for name/email
+      const { data: staffProfile } = await supabase
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', userId)
+        .single();
+
+      const staffName = staffProfile?.full_name || authData.user.user_metadata?.full_name || email.trim().split('@')[0];
+      const staffEmail = staffProfile?.email || authData.user.email || email.trim();
+
+      // 5. Check if already in event_staff and status
       const { data: existing } = await supabase
         .from('event_staff')
-        .select('id, status')
+        .select('id, status, staff_name')
         .eq('event_id', event.id)
         .eq('user_id', userId)
         .single();
@@ -131,12 +141,23 @@ export default function LoginScreen() {
           setLoading(false);
           return;
         }
-        // Already active — just set staff mode
+        // Update name/email if missing
+        if (!existing.staff_name) {
+          await supabase.from('event_staff')
+            .update({ staff_name: staffName, staff_email: staffEmail })
+            .eq('id', existing.id);
+        }
       } else {
-        // 5. Insert new staff entry
+        // 6. Insert new staff entry with name/email
         const { error: insertError } = await supabase
           .from('event_staff')
-          .insert({ event_id: event.id, user_id: userId, status: 'active' });
+          .insert({
+            event_id: event.id,
+            user_id: userId,
+            status: 'active',
+            staff_name: staffName,
+            staff_email: staffEmail,
+          });
 
         if (insertError) {
           console.error('Staff insert error:', insertError);
