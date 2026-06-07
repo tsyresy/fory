@@ -12,13 +12,21 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from './src/lib/supabase';
 import { useAuthStore } from './src/store/authStore';
+import { useChatStore } from './src/store/chatStore';
 import { colors } from './src/theme/colors';
+import {
+  registerForPushNotifications,
+  savePushToken,
+  addNotificationResponseListener,
+  setBadgeCount,
+} from './src/lib/notifications';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import ScanModeScreen from './src/screens/ScanModeScreen';
 import StaffDashboardScreen from './src/screens/StaffDashboardScreen';
+import ChatScreen from './src/screens/ChatScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -78,9 +86,10 @@ function AdminTabNavigator() {
   );
 }
 
-// Organizer tabs: Accueil + Scanner
+// Organizer tabs: Accueil + Chat + Scanner
 function OrganizerTabNavigator() {
   const tabBarStyle = useTabBarStyle();
+  const totalUnread = useChatStore(state => state.totalUnread);
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -88,6 +97,7 @@ function OrganizerTabNavigator() {
         tabBarIcon: ({ focused, color, size }) => {
           const icons = {
             'Accueil': focused ? 'home' : 'home-outline',
+            'Chat': focused ? 'chatbubbles' : 'chatbubbles-outline',
             'Scanner': focused ? 'scan-circle' : 'scan-outline',
           };
           return <Ionicons name={icons[route.name] || 'apps'} size={focused ? size + 1 : size} color={color} />;
@@ -101,14 +111,24 @@ function OrganizerTabNavigator() {
       screenListeners={{ tabPress: () => Haptics.selectionAsync() }}
     >
       <Tab.Screen name="Accueil" component={DashboardScreen} options={{ tabBarLabel: 'Accueil' }} />
+      <Tab.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={{
+          tabBarLabel: 'Chat',
+          tabBarBadge: totalUnread > 0 ? (totalUnread > 99 ? '99+' : totalUnread) : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.red, fontSize: 10, fontWeight: '700' },
+        }}
+      />
       <Tab.Screen name="Scanner" component={ScanModeScreen} options={{ tabBarLabel: 'Scanner' }} />
     </Tab.Navigator>
   );
 }
 
-// Staff tabs: Accueil (simplified) + Scanner
+// Staff tabs: Accueil (simplified) + Chat + Scanner
 function StaffTabNavigator() {
   const tabBarStyle = useTabBarStyle();
+  const totalUnread = useChatStore(state => state.totalUnread);
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -116,6 +136,7 @@ function StaffTabNavigator() {
         tabBarIcon: ({ focused, color, size }) => {
           const icons = {
             'Accueil': focused ? 'home' : 'home-outline',
+            'Chat': focused ? 'chatbubbles' : 'chatbubbles-outline',
             'Scanner': focused ? 'scan-circle' : 'scan-outline',
           };
           return <Ionicons name={icons[route.name] || 'apps'} size={focused ? size + 1 : size} color={color} />;
@@ -129,6 +150,15 @@ function StaffTabNavigator() {
       screenListeners={{ tabPress: () => Haptics.selectionAsync() }}
     >
       <Tab.Screen name="Accueil" component={StaffDashboardScreen} options={{ tabBarLabel: 'Accueil' }} />
+      <Tab.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={{
+          tabBarLabel: 'Chat',
+          tabBarBadge: totalUnread > 0 ? (totalUnread > 99 ? '99+' : totalUnread) : undefined,
+          tabBarBadgeStyle: { backgroundColor: '#7C3AED', fontSize: 10, fontWeight: '700' },
+        }}
+      />
       <Tab.Screen name="Scanner" component={ScanModeScreen} options={{ tabBarLabel: 'Scanner' }} />
     </Tab.Navigator>
   );
@@ -139,6 +169,50 @@ export default function App() {
   const [biometricLocked, setBiometricLocked] = useState(true);
   const [biometricChecking, setBiometricChecking] = useState(true);
   const [biometricType, setBiometricType] = useState(null); // 'face' | 'fingerprint' | null
+
+  // ─── Push notifications setup ─────────────────────────────────────
+  useEffect(() => {
+    if (!user || !profile) return;
+
+    const setupPush = async () => {
+      const token = await registerForPushNotifications();
+      if (token) {
+        await savePushToken(user.id, token);
+      }
+    };
+
+    setupPush();
+
+    // Listen for notification taps (e.g. navigate to chat)
+    const responseListener = addNotificationResponseListener((response) => {
+      const data = response.notification.request.content.data;
+      if (data?.type === 'chat_message') {
+        // User tapped a chat notification — the Chat tab will handle navigation
+        console.log('Notification tapped: chat_message', data);
+      }
+    });
+
+    return () => {
+      if (responseListener) responseListener.remove();
+    };
+  }, [user, profile]);
+
+  // ─── Sync badge count with unread messages ────────────────────────
+  useEffect(() => {
+    const totalUnread = useChatStore.getState().totalUnread;
+    setBadgeCount(totalUnread);
+  });
+
+  // Subscribe to totalUnread changes
+  useEffect(() => {
+    const unsub = useChatStore.subscribe(
+      (state) => state.totalUnread,
+      (totalUnread) => {
+        setBadgeCount(totalUnread);
+      }
+    );
+    return unsub;
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session }, error }) => {

@@ -170,6 +170,13 @@ export default function AdminDashboard({ refreshing, onRefreshComplete, onNaviga
           color={colors.green} badge={0}
           onPress={() => onNavigate && onNavigate('users')}
         />
+        <View style={styles.divider} />
+        <SectionButton
+          icon="chatbubbles-outline" title="Supervision Chats"
+          subtitle="Lire les discussions organisateurs/staffs"
+          color="#0EA5E9" badge={0}
+          onPress={() => onNavigate && onNavigate('chats')}
+        />
       </View>
     </View>
   );

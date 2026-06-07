@@ -9,6 +9,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { colors } from '../theme/colors';
@@ -16,6 +17,7 @@ import { colors } from '../theme/colors';
 export default function StaffDashboardScreen() {
   const { user, profile, staffEventId, staffEventTitle, signOut } = useAuthStore();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({ scansCount: 0, validScans: 0, status: 'active' });
@@ -168,6 +170,23 @@ export default function StaffDashboardScreen() {
               Utilisez l'onglet Scanner pour vérifier les billets de cet événement.
             </Text>
           </View>
+
+          <TouchableOpacity
+            style={styles.chatCard}
+            onPress={() => navigation.navigate('Chat')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.chatCardIcon}>
+              <Ionicons name="chatbubbles" size={22} color="#0EA5E9" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.chatCardTitle}>Chat Staff</Text>
+              <Text style={styles.chatCardDesc}>
+                Discutez avec l'organisateur et l'équipe.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
         </Animated.View>
       </ScrollView>
     </View>
@@ -218,6 +237,20 @@ const styles = StyleSheet.create({
   statIconBox: { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   statLabel: { fontSize: 11, color: colors.textMuted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 4 },
   statValue: { fontSize: 24, fontWeight: '700', letterSpacing: -0.3 },
-  infoCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#F5F3FF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E9D5FF' },
+  infoCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#F5F3FF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E9D5FF', marginBottom: 12 },
   infoText: { flex: 1, fontSize: 13, color: '#6D28D9', lineHeight: 19 },
+  chatCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,
+    borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#BAE6FD',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
+      android: { elevation: 2 },
+    }),
+  },
+  chatCardIcon: {
+    width: 44, height: 44, borderRadius: 12, backgroundColor: '#E0F2FE',
+    alignItems: 'center', justifyContent: 'center', marginRight: 12,
+  },
+  chatCardTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 2 },
+  chatCardDesc: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
 });

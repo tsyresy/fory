@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Tapakeel Ticket Scan",
-    "slug": "scanapp",
+    "slug": "tapakeel-e-tickets",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/brand/home-logo.png",
@@ -17,8 +17,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "L'application nécessite l'accès à la caméra pour scanner les billets."
-      }
+        "NSCameraUsageDescription": "L'application nécessite l'accès à la caméra pour scanner les billets.",
+        "NSPhotoLibraryUsageDescription": "L'application a besoin d'accéder à vos photos pour envoyer des médias dans le chat."
+      },
+      "bundleIdentifier": "com.tapakeel.scanapp"
     },
     "android": {
       "adaptiveIcon": {
@@ -26,8 +28,13 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
-        "android.permission.CAMERA"
-      ]
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.tapakeel.scanapp",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/brand/home-logo.png"
@@ -39,7 +46,28 @@
           "cameraPermission": "Allow Tapakeel to access your camera to scan tickets."
         }
       ],
-      "expo-secure-store"
-    ]
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/brand/home-logo.png",
+          "color": "#224798",
+          "sounds": []
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Tapakeel a besoin d'accéder à vos photos pour envoyer des médias dans le chat.",
+          "cameraPermission": "Tapakeel a besoin de votre caméra pour prendre des photos."
+        }
+      ]
+    ],
+    "owner": "tsyresy",
+    "extra": {
+      "eas": {
+        "projectId": "502e97d1-9ff9-4f10-95f9-ff323dad4543"
+      }
+    }
   }
 }

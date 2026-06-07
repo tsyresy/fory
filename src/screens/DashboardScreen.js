@@ -9,6 +9,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { globalStyles } from '../theme/styles';
@@ -19,6 +20,7 @@ import AdminDashboard from './dashboards/AdminDashboard';
 import AdminEventsScreen from './dashboards/admin/AdminEventsScreen';
 import AdminUsersScreen from './dashboards/admin/AdminUsersScreen';
 import AdminPayoutsScreen from './dashboards/admin/AdminPayoutsScreen';
+import AdminChatsScreen from './dashboards/admin/AdminChatsScreen';
 
 // Organizer
 import OrganizerDashboard from './dashboards/OrganizerDashboard';
@@ -26,6 +28,7 @@ import OrganizerEventsScreen from './dashboards/organizer/OrganizerEventsScreen'
 import OrganizerPayoutsScreen from './dashboards/organizer/OrganizerPayoutsScreen';
 import OrganizerStaffScreen from './dashboards/organizer/OrganizerStaffScreen';
 import OrganizerSecurityScreen from './dashboards/organizer/OrganizerSecurityScreen';
+import ChatListScreen from './chat/ChatListScreen';
 
 // ─── Section Header for sub-pages ─────────────────────────────────────────────
 function SectionHeader({ title, onBack }) {
@@ -43,6 +46,7 @@ function SectionHeader({ title, onBack }) {
 const ADMIN_SECTIONS = [
   { key: 'home', label: 'Accueil', icon: 'home-outline' },
   { key: 'events', label: 'Événements', icon: 'calendar-outline' },
+  { key: 'chats', label: 'Chats', icon: 'chatbubbles-outline' },
   { key: 'payouts', label: 'Retraits', icon: 'cash-outline' },
   { key: 'users', label: 'Utilisateurs', icon: 'people-outline' },
 ];
@@ -51,6 +55,7 @@ const ORGANIZER_SECTIONS = [
   { key: 'home', label: 'Accueil', icon: 'home-outline' },
   { key: 'events', label: 'Mes Événements', icon: 'calendar-outline' },
   { key: 'staff', label: 'Mon Staff', icon: 'people-outline' },
+  { key: 'chat', label: 'Chat Staff', icon: 'chatbubbles-outline' },
   { key: 'payouts', label: 'Trésorerie', icon: 'wallet-outline' },
   { key: 'security', label: 'Sécurité', icon: 'shield-checkmark-outline' },
 ];
@@ -94,6 +99,7 @@ function SectionTabBar({ sections, activeSection, onSelect, badgeCounts = {} }) 
 export default function DashboardScreen() {
   const { user, profile, signOut } = useAuthStore();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const [refreshing, setRefreshing] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
 
@@ -122,6 +128,7 @@ export default function DashboardScreen() {
     if (isAdmin) {
       switch (activeSection) {
         case 'events': return <AdminEventsScreen refreshing={refreshing} onRefreshComplete={handleRefreshComplete} />;
+        case 'chats': return <AdminChatsScreen refreshing={refreshing} onRefreshComplete={handleRefreshComplete} />;
         case 'payouts': return <AdminPayoutsScreen refreshing={refreshing} onRefreshComplete={handleRefreshComplete} />;
         case 'users': return <AdminUsersScreen refreshing={refreshing} onRefreshComplete={handleRefreshComplete} />;
         default: return (
@@ -137,6 +144,7 @@ export default function DashboardScreen() {
       switch (activeSection) {
         case 'events': return <OrganizerEventsScreen user={user} refreshing={refreshing} onRefreshComplete={handleRefreshComplete} />;
         case 'staff': return <OrganizerStaffScreen user={user} refreshing={refreshing} onRefreshComplete={handleRefreshComplete} />;
+        case 'chat': return <ChatListScreen userId={user?.id} onSelectEvent={() => navigation.navigate('Chat')} />;
         case 'payouts': return <OrganizerPayoutsScreen user={user} profile={profile} refreshing={refreshing} onRefreshComplete={handleRefreshComplete} />;
         case 'security': return <OrganizerSecurityScreen user={user} profile={profile} refreshing={refreshing} onRefreshComplete={handleRefreshComplete} />;
         default: return (

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "568447286014",
+    "project_id": "tapakeel-e-tickets",
+    "storage_bucket": "tapakeel-e-tickets.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:568447286014:android:ea6dab3ad216bf541043af",
+        "android_client_info": {
+          "package_name": "com.tapakeel.scanapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDUBpA3PGSC9CfHJWNbEf7aL1kyIOqQmsI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

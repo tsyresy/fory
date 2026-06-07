@@ -173,6 +173,10 @@ export default function OrganizerDashboard({ user, profile, refreshing, onRefres
           onPress={() => onNavigate && onNavigate('staff')}
         />
         <View style={styles.divider} />
+        <ActionRow icon="chatbubbles-outline" label="Chat Staff" color="#0EA5E9"
+          onPress={() => onNavigate && onNavigate('chat')}
+        />
+        <View style={styles.divider} />
         <ActionRow icon="shield-checkmark-outline" label="Sécurité (PIN / Biométrie)" color={colors.blue}
           onPress={() => onNavigate && onNavigate('security')}
         />
