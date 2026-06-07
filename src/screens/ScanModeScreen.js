@@ -17,7 +17,7 @@ import { useAuthStore } from '../store/authStore';
 import { colors } from '../theme/colors';
 
 export default function ScanModeScreen() {
-  const { user, profile } = useAuthStore();
+  const { user, profile, isStaff, staffEventId, staffEventTitle } = useAuthStore();
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
@@ -25,8 +25,9 @@ export default function ScanModeScreen() {
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [scanResult, setScanResult] = useState(null);
+  const [staffSuspended, setStaffSuspended] = useState(false);
 
-  const isAuthorized = profile?.scan_authorized || profile?.role === 'admin';
+  const isAuthorized = isStaff || profile?.scan_authorized || profile?.role === 'admin';
 
   // Animations
   const cornerOpacity = useSharedValue(0.6);
@@ -68,6 +69,38 @@ export default function ScanModeScreen() {
 
   const fetchEvents = async () => {
     setLoading(true);
+
+    // Staff mode: only show the assigned event
+    if (isStaff && staffEventId) {
+      // Check staff access status first
+      const { data: staffEntry } = await supabase
+        .from('event_staff')
+        .select('status')
+        .eq('event_id', staffEventId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (staffEntry?.status === 'suspended') {
+        setStaffSuspended(true);
+        setLoading(false);
+        return;
+      }
+
+      const { data: event } = await supabase
+        .from('events')
+        .select('id, title')
+        .eq('id', staffEventId)
+        .single();
+
+      if (event) {
+        setEvents([event]);
+        setSelectedEventId(event.id);
+      }
+      setLoading(false);
+      return;
+    }
+
+    // Normal mode: organizer or admin
     let query = supabase.from('events').select('id, title').in('status', ['approved', 'published']);
     if (profile?.role !== 'admin') query = query.eq('organizer_id', user.id);
     const { data } = await query;
@@ -137,8 +170,21 @@ export default function ScanModeScreen() {
     );
   }
 
+  // Staff suspended
+  if (isStaff && staffSuspended) {
+    return (
+      <View style={[styles.fill, styles.centered, { paddingTop: insets.top }]}>
+        <View style={styles.infoCard}>
+          <Ionicons name="ban" size={44} color={colors.red} style={{ marginBottom: 14 }} />
+          <Text style={[styles.infoTitle, { color: colors.red }]}>Accès suspendu</Text>
+          <Text style={styles.infoText}>L'organisateur a suspendu votre accès au scanner pour cet événement.</Text>
+        </View>
+      </View>
+    );
+  }
+
   if (!permission) {
-    return <View style={styles.fill}><ActivityIndicator style={{ flex: 1 }} size="large" color={colors.blue} /></View>;
+    return <View style={styles.fill}><ActivityIndicator style={{ flex: 1 }} size="large" color={isStaff ? '#7C3AED' : colors.blue} /></View>;
   }
 
   if (!permission.granted) {
@@ -147,7 +193,7 @@ export default function ScanModeScreen() {
         <Ionicons name="camera-outline" size={56} color={colors.textMuted} style={{ marginBottom: 16 }} />
         <Text style={styles.infoTitle}>Caméra requise</Text>
         <Text style={styles.infoText}>L'accès à la caméra est nécessaire pour scanner les billets QR.</Text>
-        <TouchableOpacity style={styles.permBtn} onPress={requestPermission}>
+        <TouchableOpacity style={[styles.permBtn, isStaff && { backgroundColor: '#7C3AED' }]} onPress={requestPermission}>
           <Text style={styles.permBtnText}>Autoriser la caméra</Text>
         </TouchableOpacity>
       </View>
@@ -157,7 +203,7 @@ export default function ScanModeScreen() {
   if (loading) {
     return (
       <View style={[styles.fill, styles.centered]}>
-        <ActivityIndicator size="large" color={colors.blue} />
+        <ActivityIndicator size="large" color={isStaff ? '#7C3AED' : colors.blue} />
         <Text style={[styles.infoText, { marginTop: 12 }]}>Chargement des événements…</Text>
       </View>
     );
@@ -178,30 +224,49 @@ export default function ScanModeScreen() {
       )}
 
       {/* Top overlay */}
-      <LinearGradient colors={['rgba(0,0,0,0.80)', 'transparent']} style={[styles.topOverlay, { paddingTop: insets.top + 14 }]}>
+      <LinearGradient
+        colors={isStaff ? ['rgba(124,58,237,0.85)', 'transparent'] : ['rgba(0,0,0,0.80)', 'transparent']}
+        style={[styles.topOverlay, { paddingTop: insets.top + 14 }]}
+      >
         <View style={styles.topRow}>
-          <Text style={styles.screenTitle}>Scanner</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={styles.screenTitle}>Scanner</Text>
+            {isStaff && (
+              <View style={styles.staffTopBadge}>
+                <Text style={styles.staffTopBadgeText}>STAFF</Text>
+              </View>
+            )}
+          </View>
           <View style={styles.statusPill}>
             <View style={[styles.statusDot, { backgroundColor: selectedEventId ? '#4ADE80' : '#9CA3AF' }]} />
             <Text style={styles.statusText}>{selectedEventId ? 'Prêt' : 'En attente'}</Text>
           </View>
         </View>
-        {events.length > 0 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsWrap}>
-            {events.map(evt => (
-              <TouchableOpacity
-                key={evt.id}
-                style={[styles.eventPill, selectedEventId === evt.id && styles.eventPillActive]}
-                onPress={() => { setSelectedEventId(evt.id); Haptics.selectionAsync(); }}
-              >
-                <Text style={[styles.eventPillText, selectedEventId === evt.id && styles.eventPillTextActive]} numberOfLines={1}>
-                  {evt.title}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+
+        {/* Staff mode: show single event name, no switcher */}
+        {isStaff ? (
+          <View style={styles.staffEventBanner}>
+            <Ionicons name="calendar" size={16} color="rgba(255,255,255,0.8)" style={{ marginRight: 8 }} />
+            <Text style={styles.staffEventName} numberOfLines={1}>{staffEventTitle || 'Événement'}</Text>
+          </View>
         ) : (
-          <Text style={styles.noEventText}>Aucun événement approuvé disponible</Text>
+          events.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsWrap}>
+              {events.map(evt => (
+                <TouchableOpacity
+                  key={evt.id}
+                  style={[styles.eventPill, selectedEventId === evt.id && styles.eventPillActive]}
+                  onPress={() => { setSelectedEventId(evt.id); Haptics.selectionAsync(); }}
+                >
+                  <Text style={[styles.eventPillText, selectedEventId === evt.id && styles.eventPillTextActive]} numberOfLines={1}>
+                    {evt.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <Text style={styles.noEventText}>Aucun événement approuvé disponible</Text>
+          )
         )}
       </LinearGradient>
 
@@ -266,6 +331,11 @@ const styles = StyleSheet.create({
   topOverlay: { position: 'absolute', top: 0, left: 0, right: 0, paddingBottom: 16, zIndex: 10 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 12 },
   screenTitle: { fontSize: 22, fontWeight: '700', color: colors.white, letterSpacing: -0.3 },
+  staffTopBadge: {
+    marginLeft: 8, backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+  },
+  staffTopBadgeText: { fontSize: 10, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
   statusPill: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.15)',
@@ -273,6 +343,16 @@ const styles = StyleSheet.create({
   },
   statusDot: { width: 7, height: 7, borderRadius: 4, marginRight: 6 },
   statusText: { color: colors.white, fontSize: 12, fontWeight: '600' },
+
+  // Staff event banner
+  staffEventBanner: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    marginHorizontal: 20, paddingHorizontal: 14, paddingVertical: 10,
+    borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+  },
+  staffEventName: { color: colors.white, fontSize: 14, fontWeight: '600', flex: 1 },
+
   pillsWrap: { paddingHorizontal: 20, gap: 8 },
   eventPill: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,

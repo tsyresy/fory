@@ -24,6 +24,8 @@ import AdminPayoutsScreen from './dashboards/admin/AdminPayoutsScreen';
 import OrganizerDashboard from './dashboards/OrganizerDashboard';
 import OrganizerEventsScreen from './dashboards/organizer/OrganizerEventsScreen';
 import OrganizerPayoutsScreen from './dashboards/organizer/OrganizerPayoutsScreen';
+import OrganizerStaffScreen from './dashboards/organizer/OrganizerStaffScreen';
+import OrganizerSecurityScreen from './dashboards/organizer/OrganizerSecurityScreen';
 
 // ─── Section Header for sub-pages ─────────────────────────────────────────────
 function SectionHeader({ title, onBack }) {
@@ -48,7 +50,9 @@ const ADMIN_SECTIONS = [
 const ORGANIZER_SECTIONS = [
   { key: 'home', label: 'Accueil', icon: 'home-outline' },
   { key: 'events', label: 'Mes Événements', icon: 'calendar-outline' },
+  { key: 'staff', label: 'Mon Staff', icon: 'people-outline' },
   { key: 'payouts', label: 'Trésorerie', icon: 'wallet-outline' },
+  { key: 'security', label: 'Sécurité', icon: 'shield-checkmark-outline' },
 ];
 
 function SectionTabBar({ sections, activeSection, onSelect, badgeCounts = {} }) {
@@ -132,7 +136,9 @@ export default function DashboardScreen() {
     if (isOrganizer) {
       switch (activeSection) {
         case 'events': return <OrganizerEventsScreen user={user} refreshing={refreshing} onRefreshComplete={handleRefreshComplete} />;
+        case 'staff': return <OrganizerStaffScreen user={user} refreshing={refreshing} onRefreshComplete={handleRefreshComplete} />;
         case 'payouts': return <OrganizerPayoutsScreen user={user} profile={profile} refreshing={refreshing} onRefreshComplete={handleRefreshComplete} />;
+        case 'security': return <OrganizerSecurityScreen user={user} profile={profile} refreshing={refreshing} onRefreshComplete={handleRefreshComplete} />;
         default: return (
           <OrganizerDashboard
             user={user}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { colors } from '../../theme/colors';
@@ -37,6 +38,19 @@ export default function OrganizerDashboard({ user, profile, refreshing, onRefres
   const [loading, setLoading] = useState(true);
   const [hideNotif, setHideNotif] = useState(false);
   const [requestingScan, setRequestingScan] = useState(false);
+  const [balanceHidden, setBalanceHidden] = useState(true);
+
+  useEffect(() => {
+    AsyncStorage.getItem('tapakeel_hide_balance').then(v => {
+      if (v === 'false') setBalanceHidden(false);
+    });
+  }, []);
+
+  const toggleBalanceVisibility = async () => {
+    const next = !balanceHidden;
+    setBalanceHidden(next);
+    await AsyncStorage.setItem('tapakeel_hide_balance', String(next));
+  };
 
   const fetchStats = useCallback(async () => {
     try {
@@ -123,11 +137,18 @@ export default function OrganizerDashboard({ user, profile, refreshing, onRefres
         <StatCard icon="ticket-outline" label="Billets vendus" value={String(stats.ticketsSold)}
           hint="Au total" accentColor={colors.green} />
         <View style={[styles.statCard, styles.fullWidth, { borderTopColor: colors.yellow, borderTopWidth: 3 }]}>
-          <View style={[styles.statIcon, { backgroundColor: colors.yellow + '18' }]}>
-            <Ionicons name="wallet-outline" size={20} color={colors.yellow} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={[styles.statIcon, { backgroundColor: colors.yellow + '18' }]}>
+              <Ionicons name="wallet-outline" size={20} color={colors.yellow} />
+            </View>
+            <TouchableOpacity onPress={toggleBalanceVisibility} style={{ padding: 6 }}>
+              <Ionicons name={balanceHidden ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
+            </TouchableOpacity>
           </View>
           <Text style={styles.statLabel}>Solde disponible</Text>
-          <Text style={[styles.statValue, { color: colors.yellow }]}>{revenueText()}</Text>
+          <Text style={[styles.statValue, { color: colors.yellow }]}>
+            {balanceHidden ? '••••••' : revenueText()}
+          </Text>
           <Text style={styles.statHint}>Prêt à être retiré</Text>
         </View>
       </View>
@@ -146,6 +167,14 @@ export default function OrganizerDashboard({ user, profile, refreshing, onRefres
         <View style={styles.divider} />
         <ActionRow icon="wallet-outline" label="Trésorerie & Retraits" color={colors.yellow}
           onPress={() => onNavigate && onNavigate('payouts')}
+        />
+        <View style={styles.divider} />
+        <ActionRow icon="people-outline" label="Gérer mon Staff" color="#7C3AED"
+          onPress={() => onNavigate && onNavigate('staff')}
+        />
+        <View style={styles.divider} />
+        <ActionRow icon="shield-checkmark-outline" label="Sécurité (PIN / Biométrie)" color={colors.blue}
+          onPress={() => onNavigate && onNavigate('security')}
         />
         <View style={styles.divider} />
         {profile?.scan_authorized ? (

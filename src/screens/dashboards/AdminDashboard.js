@@ -4,13 +4,14 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, ScrollView, Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay, Easing } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { colors } from '../../theme/colors';
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
-function StatCard({ icon, label, value, hint, accentColor, badgeCount, delay = 0 }) {
+function StatCard({ icon, label, value, hint, accentColor, badgeCount, delay = 0, eyeToggle, balanceHidden }) {
   const opacity = useSharedValue(0);
   const y = useSharedValue(16);
   useEffect(() => {
@@ -21,8 +22,15 @@ function StatCard({ icon, label, value, hint, accentColor, badgeCount, delay = 0
 
   return (
     <Animated.View style={[styles.statCard, anim]}>
-      <View style={[styles.statIconBox, { backgroundColor: accentColor + '20' }]}>
-        <Ionicons name={icon} size={22} color={accentColor} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={[styles.statIconBox, { backgroundColor: accentColor + '20' }]}>
+          <Ionicons name={icon} size={22} color={accentColor} />
+        </View>
+        {eyeToggle && (
+          <TouchableOpacity onPress={eyeToggle} style={{ padding: 6 }}>
+            <Ionicons name={balanceHidden ? 'eye-off-outline' : 'eye-outline'} size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
       </View>
       <Text style={styles.statLabel}>{label}</Text>
       <Text style={[styles.statValue, { color: accentColor }]}>{value}</Text>
@@ -65,6 +73,19 @@ export default function AdminDashboard({ refreshing, onRefreshComplete, onNaviga
     pendingPayoutsCount: 0, pendingEventsCount: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [balanceHidden, setBalanceHidden] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('tapakeel_hide_balance').then(v => {
+      if (v === 'true') setBalanceHidden(true);
+    });
+  }, []);
+
+  const toggleBalanceVisibility = async () => {
+    const next = !balanceHidden;
+    setBalanceHidden(next);
+    await AsyncStorage.setItem('tapakeel_hide_balance', String(next));
+  };
 
   const fetchStats = useCallback(async () => {
     try {
@@ -120,7 +141,7 @@ export default function AdminDashboard({ refreshing, onRefreshComplete, onNaviga
       {/* Stats grid */}
       <Text style={styles.sectionHeader}>Vue d'ensemble</Text>
       <View style={styles.statsGrid}>
-        <StatCard icon="wallet-outline" label="Revenus plateforme" value={revenueText()} hint="Commission 5%" accentColor={colors.blue} delay={0} />
+        <StatCard icon="wallet-outline" label="Revenus plateforme" value={balanceHidden ? '••••••' : revenueText()} hint="Commission 5%" accentColor={colors.blue} delay={0} eyeToggle={toggleBalanceVisibility} balanceHidden={balanceHidden} />
         <StatCard icon="time-outline" label="Retraits en attente" value={String(stats.pendingPayoutsCount)} hint="À traiter" accentColor={colors.yellow} delay={80} />
         <StatCard icon="people-outline" label="Utilisateurs" value={String(stats.totalUsers)} hint="Inscrits" accentColor={colors.green} delay={160} />
         <StatCard icon="calendar-outline" label="Événements" value={String(stats.totalEvents)} hint={`${stats.pendingEventsCount} en attente`} accentColor={colors.blue} badgeCount={stats.pendingEventsCount} delay={240} />

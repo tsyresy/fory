@@ -1,12 +1,16 @@
 // Organizer Payouts — Balance + Withdrawal form + History
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, Alert, TextInput, ScrollView,
+  Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { supabase } from '../../../lib/supabase';
 import { colors } from '../../../theme/colors';
+import { hashPin } from '../../../lib/hashPin';
 
 const METHODS = [
   { key: 'orange_money', label: '🟠 Orange Money' },
@@ -16,8 +20,7 @@ const METHODS = [
 
 const CURRENCIES = ['MGA', 'EUR', 'USD'];
 
-function BalanceCard({ label, value, accent, icon }) {
-  const hasValue = Object.values(value).some(v => v > 0);
+function BalanceCard({ label, value, accent, icon, hidden, onToggle, showToggle }) {
   const formatValue = () => {
     const parts = [];
     if (value.MGA > 0) parts.push(`${value.MGA.toLocaleString('fr-FR')} MGA`);
@@ -27,11 +30,18 @@ function BalanceCard({ label, value, accent, icon }) {
   };
   return (
     <View style={[styles.balanceCard, { borderTopColor: accent, borderTopWidth: 3 }]}>
-      <View style={[styles.balanceIcon, { backgroundColor: accent + '18' }]}>
-        <Ionicons name={icon} size={18} color={accent} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={[styles.balanceIcon, { backgroundColor: accent + '18' }]}>
+          <Ionicons name={icon} size={18} color={accent} />
+        </View>
+        {showToggle && (
+          <TouchableOpacity onPress={onToggle} style={{ padding: 4 }}>
+            <Ionicons name={hidden ? 'eye-off-outline' : 'eye-outline'} size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
       </View>
       <Text style={styles.balanceLabel}>{label}</Text>
-      <Text style={[styles.balanceValue, { color: accent }]}>{formatValue()}</Text>
+      <Text style={[styles.balanceValue, { color: accent }]}>{hidden ? '••••••' : formatValue()}</Text>
     </View>
   );
 }
@@ -49,6 +59,26 @@ export default function OrganizerPayoutsScreen({ user, profile, refreshing, onRe
   const [selectedMethod, setSelectedMethod] = useState('orange_money');
   const [reference, setReference] = useState('');
   const [refError, setRefError] = useState('');
+  const [balanceHidden, setBalanceHidden] = useState(true);
+
+  // PIN modal state
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [pendingAmount, setPendingAmount] = useState(0);
+  const pinInputRef = useRef(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem('tapakeel_hide_balance').then(v => {
+      if (v === 'false') setBalanceHidden(false);
+    });
+  }, []);
+
+  const toggleBalanceVisibility = async () => {
+    const next = !balanceHidden;
+    setBalanceHidden(next);
+    await AsyncStorage.setItem('tapakeel_hide_balance', String(next));
+  };
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -102,6 +132,40 @@ export default function OrganizerPayoutsScreen({ user, profile, refreshing, onRe
     }
     setRefError('');
 
+    // PIN verification gate
+    if (profile?.pin_hash) {
+      setPendingAmount(amount);
+      setShowPinModal(true);
+      setPinInput('');
+      setPinError('');
+      return;
+    }
+
+    // No PIN — proceed directly
+    executeWithdrawal(amount);
+  };
+
+  const handlePinSubmit = async () => {
+    if (!pinInput || pinInput.length < 4) {
+      setPinError('Veuillez entrer votre code PIN (4-6 chiffres).');
+      return;
+    }
+    try {
+      const hash = await hashPin(pinInput);
+      if (hash !== profile.pin_hash) {
+        setPinError('Code PIN incorrect.');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
+      }
+      setShowPinModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      executeWithdrawal(pendingAmount);
+    } catch (e) {
+      setPinError('Impossible de vérifier le code PIN.');
+    }
+  };
+
+  const executeWithdrawal = (amount) => {
     Alert.alert(
       'Confirmer le retrait',
       `Vous allez demander le virement de ${amount.toLocaleString('fr-FR')} ${selectedCurrency} via ${selectedMethod} (${reference}).`,
@@ -139,6 +203,7 @@ export default function OrganizerPayoutsScreen({ user, profile, refreshing, onRe
               }));
               setReference('');
               Alert.alert('Succès', 'Demande de retrait envoyée avec succès.');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } catch (e) {
               Alert.alert('Erreur', e.message || 'Impossible d\'envoyer la demande.');
             } finally {
@@ -162,9 +227,9 @@ export default function OrganizerPayoutsScreen({ user, profile, refreshing, onRe
       {/* Balance */}
       <Text style={styles.sectionHeader}>Trésorerie</Text>
       <View style={styles.balanceGrid}>
-        <BalanceCard label="Solde disponible" value={balance.available} accent={colors.blue} icon="wallet-outline" />
-        <BalanceCard label="Retiré / En cours" value={balance.totalWithdrawn} accent={colors.yellow} icon="arrow-down-outline" />
-        <BalanceCard label="Total gagné" value={balance.totalEarned} accent={colors.green} icon="trending-up-outline" />
+        <BalanceCard label="Solde disponible" value={balance.available} accent={colors.blue} icon="wallet-outline" hidden={balanceHidden} onToggle={toggleBalanceVisibility} showToggle />
+        <BalanceCard label="Retiré / En cours" value={balance.totalWithdrawn} accent={colors.yellow} icon="arrow-down-outline" hidden={balanceHidden} />
+        <BalanceCard label="Total gagné" value={balance.totalEarned} accent={colors.green} icon="trending-up-outline" hidden={balanceHidden} />
       </View>
 
       {/* Withdrawal Form */}
@@ -270,6 +335,64 @@ export default function OrganizerPayoutsScreen({ user, profile, refreshing, onRe
           </View>
         ))
       )}
+
+      {/* ─── PIN Verification Modal ─── */}
+      <Modal
+        visible={showPinModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPinModal(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconWrap}>
+                <Ionicons name="lock-closed" size={24} color={colors.blue} />
+              </View>
+              <View>
+                <Text style={styles.modalTitle}>Vérification PIN</Text>
+                <Text style={styles.modalSubtitle}>Entrez votre code PIN pour confirmer</Text>
+              </View>
+            </View>
+
+            <TextInput
+              ref={pinInputRef}
+              style={styles.pinModalInput}
+              value={pinInput}
+              onChangeText={(t) => { setPinInput(t.replace(/\D/g, '')); setPinError(''); }}
+              maxLength={6}
+              keyboardType="number-pad"
+              secureTextEntry
+              placeholder="••••"
+              placeholderTextColor={colors.textMuted}
+              autoFocus
+              onSubmitEditing={handlePinSubmit}
+            />
+            {pinError ? (
+              <Text style={styles.pinModalError}>{pinError}</Text>
+            ) : null}
+
+            <View style={styles.modalBtns}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalCancelBtn]}
+                onPress={() => { setShowPinModal(false); setPinInput(''); setPinError(''); }}
+              >
+                <Text style={styles.modalCancelText}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalConfirmBtn]}
+                onPress={handlePinSubmit}
+              >
+                <Ionicons name="lock-closed" size={16} color={colors.white} style={{ marginRight: 6 }} />
+                <Text style={styles.modalConfirmText}>Confirmer</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -341,4 +464,38 @@ const styles = StyleSheet.create({
   historyMethod: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
   historyStatus: { fontSize: 12, fontWeight: '700' },
   historyDate: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+
+  // PIN Modal
+  modalOverlay: {
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalCard: {
+    backgroundColor: colors.white, borderRadius: 20, padding: 24,
+    width: '85%', maxWidth: 360,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.15, shadowRadius: 24 },
+      android: { elevation: 12 },
+    }),
+  },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  modalIconWrap: {
+    width: 48, height: 48, borderRadius: 14,
+    backgroundColor: colors.bluePale, alignItems: 'center', justifyContent: 'center', marginRight: 14,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
+  modalSubtitle: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  pinModalInput: {
+    borderWidth: 2, borderColor: colors.border, borderRadius: 14,
+    paddingVertical: 16, paddingHorizontal: 20,
+    fontSize: 24, fontWeight: '700', textAlign: 'center',
+    letterSpacing: 10, color: colors.text,
+  },
+  pinModalError: { color: colors.red, fontSize: 13, fontWeight: '600', textAlign: 'center', marginTop: 8 },
+  modalBtns: { flexDirection: 'row', gap: 10, marginTop: 20 },
+  modalBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 13, borderRadius: 12 },
+  modalCancelBtn: { backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border },
+  modalConfirmBtn: { backgroundColor: colors.blue },
+  modalCancelText: { color: colors.textSecondary, fontWeight: '700', fontSize: 14 },
+  modalConfirmText: { color: colors.white, fontWeight: '700', fontSize: 14 },
 });
