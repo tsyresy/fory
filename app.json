@@ -4,10 +4,10 @@
     "slug": "tapakeel-e-tickets",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/brand/home-logo.png",
+    "icon": "./assets/brand/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/brand/home-logo.png",
+      "image": "./assets/brand/icons.svg",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -24,7 +24,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/brand/home-logo.png",
+        "foregroundImage": "./assets/brand/icon.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
